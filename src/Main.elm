@@ -3,30 +3,7 @@ module Main exposing (main)
 import Html exposing (Html)
 import Element exposing (..)
 import Browser
-import Url.Builder as Url
-
-
--- Url
-
-
-baseUrl =
-    "https://www.theaudiodb.com/"
-
-
-apiKey =
-    String.fromInt 1
-
-
-queryUrl requestType parameterList =
-    baseUrl
-        ++ Url.relative
-            [ "api", "v1", "json", apiKey, requestType ]
-            parameterList
-
-
-exampleQueryUrl =
-    queryToString <| TrackSearch "Kent" "columbus"
-
+import Url.Builder as Url exposing (QueryParameter)
 
 
 -- Query Types
@@ -49,6 +26,32 @@ type Query
     | AlbumSearch Artist Album
     | TrackSearch Artist Track
     | Discography Artist
+
+
+
+-- Url Helpers
+
+
+baseUrl : String
+baseUrl =
+    "https://www.theaudiodb.com/"
+
+
+apiKey : String
+apiKey =
+    String.fromInt 1
+
+
+queryUrl : String -> List QueryParameter -> String
+queryUrl requestType parameterList =
+    baseUrl
+        ++ Url.relative
+            [ "api", "v1", "json", apiKey, requestType ]
+            parameterList
+
+
+
+-- Create a query
 
 
 queryToString : Query -> String
@@ -115,6 +118,11 @@ update msg model =
 
 
 -- View
+
+
+exampleQueryUrl : String
+exampleQueryUrl =
+    queryToString <| TrackSearch "Kent" "columbus"
 
 
 view : Model -> Html msg
