@@ -3,6 +3,7 @@ module Main exposing (main)
 import Html exposing (Html)
 import Element exposing (..)
 import Browser
+import Http
 import Url.Builder as Url exposing (QueryParameter)
 
 
@@ -32,30 +33,27 @@ type Query
 -- Url Helpers
 
 
-baseUrl : String
-baseUrl =
-    "https://www.theaudiodb.com/"
+pasteUrl : String -> List QueryParameter -> String
+pasteUrl requestType parameterList =
+    let
+        baseUrl =
+            "https://www.theaudiodb.com/"
 
-
-apiKey : String
-apiKey =
-    String.fromInt 1
-
-
-queryUrl : String -> List QueryParameter -> String
-queryUrl requestType parameterList =
-    baseUrl
-        ++ Url.relative
-            [ "api", "v1", "json", apiKey, requestType ]
-            parameterList
+        apiKey =
+            String.fromInt 1
+    in
+        baseUrl
+            ++ Url.relative
+                [ "api", "v1", "json", apiKey, requestType ]
+                parameterList
 
 
 
 -- Create a query
 
 
-queryToString : Query -> String
-queryToString query =
+queryToUrl : Query -> String
+queryToUrl query =
     let
         artistParameter name =
             Url.string "s" name
@@ -68,24 +66,38 @@ queryToString query =
     in
         case query of
             ArtistSearch artist ->
-                queryUrl "search.php"
+                pasteUrl "search.php"
                     [ artistParameter artist ]
 
             AlbumSearch artist album ->
-                queryUrl "searchalbum.php"
+                pasteUrl "searchalbum.php"
                     [ artistParameter artist
                     , albumParameter album
                     ]
 
             TrackSearch artist track ->
-                queryUrl "searchtrack.php"
+                pasteUrl "searchtrack.php"
                     [ artistParameter artist
                     , trackParameter track
                     ]
 
             Discography artist ->
-                queryUrl "discography.php"
+                pasteUrl "discography.php"
                     [ artistParameter artist ]
+
+
+
+-- Http
+
+
+request : Query -> Cmd Msg
+request query =
+    let
+        url =
+            queryToUrl query
+    in
+        Http.send Request <|
+            Http.getString url
 
 
 
@@ -93,12 +105,12 @@ queryToString query =
 
 
 type alias Model =
-    {}
+    String
 
 
-init : () -> ( Model, Cmd msg )
+init : () -> ( Model, Cmd Msg )
 init _ =
-    ( {}, Cmd.none )
+    ( "", request exampleQuery )
 
 
 
@@ -106,13 +118,20 @@ init _ =
 
 
 type Msg
-    = NoOp
+    = Submit
+    | Request (Result Http.Error String)
 
 
-update : Msg -> Model -> ( Model, Cmd msg )
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        NoOp ->
+        Submit ->
+            ( model, request exampleQuery )
+
+        Request (Ok string) ->
+            ( string, Cmd.none )
+
+        Request (Err _) ->
             ( model, Cmd.none )
 
 
@@ -120,14 +139,14 @@ update msg model =
 -- View
 
 
-exampleQueryUrl : String
-exampleQueryUrl =
-    queryToString <| TrackSearch "Kent" "columbus"
+exampleQuery : Query
+exampleQuery =
+    TrackSearch "Kent" "columbus"
 
 
 view : Model -> Html msg
 view model =
-    layout [] <| text exampleQueryUrl
+    layout [] <| text model
 
 
 
