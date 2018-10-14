@@ -26,7 +26,8 @@ type alias TrackName =
 
 type Query
     = ArtistSearch ArtistName
-    | AlbumSearch ArtistName AlbumName
+    | ArtistAlbumSearch ArtistName AlbumName
+    | AlbumSearch AlbumName
     | TrackSearch ArtistName TrackName
     | Discography ArtistName
 
@@ -71,11 +72,15 @@ queryToUrl query =
                 pasteUrl "search.php"
                     [ artistParameter artist ]
 
-            AlbumSearch artist album ->
+            ArtistAlbumSearch artist album ->
                 pasteUrl "searchalbum.php"
                     [ artistParameter artist
                     , albumParameter album
                     ]
+
+            AlbumSearch album ->
+                pasteUrl "searchalbum.php"
+                    [ albumParameter album ]
 
             TrackSearch artist track ->
                 pasteUrl "searchtrack.php"
@@ -99,14 +104,14 @@ request query =
             queryToUrl query
     in
         Http.send Request <|
-            Http.get url trackDecoder
+            Http.get url trackContainerDecoder
 
 
 
 -- Json
 
 
-type alias TrackSub =
+type alias Track =
     { artist : String
     , album : String
     , trackNumber : String
@@ -114,24 +119,24 @@ type alias TrackSub =
     }
 
 
-type alias Track =
-    { track : List TrackSub
+type alias TrackContainer =
+    { track : List Track
     }
 
 
-trackSubDecoder : Decoder TrackSub
-trackSubDecoder =
-    Decode.succeed TrackSub
+trackDecoder : Decoder Track
+trackDecoder =
+    Decode.succeed Track
         |> required "strArtist" string
         |> required "strAlbum" string
         |> required "intTrackNumber" string
         |> required "strTrack" string
 
 
-trackDecoder : Decoder Track
-trackDecoder =
-    Decode.succeed Track
-        |> required "track" (list trackSubDecoder)
+trackContainerDecoder : Decoder TrackContainer
+trackContainerDecoder =
+    Decode.succeed TrackContainer
+        |> required "track" (list trackDecoder)
 
 
 
@@ -153,9 +158,10 @@ init _ =
 
 type Msg
     = Submit
-    | Request (Result Http.Error Track)
+    | Request (Result Http.Error TrackContainer)
 
 
+resultToString : TrackContainer -> String
 resultToString result =
     case List.head result.track of
         Nothing ->
@@ -191,7 +197,7 @@ update msg model =
 
 exampleQuery : Query
 exampleQuery =
-    TrackSearch "Kent" "columbus"
+    TrackSearch "Front 242" "Tragedy for you"
 
 
 view : Model -> Html msg
