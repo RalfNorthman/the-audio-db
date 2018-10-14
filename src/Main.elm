@@ -9,6 +9,14 @@ import Json.Decode as Decode exposing (Decoder, int, string, list)
 import Json.Decode.Pipeline exposing (required, optional, requiredAt)
 
 
+-- Settings
+
+
+defaultPicture =
+    ""
+
+
+
 -- Query Types
 
 
@@ -29,7 +37,6 @@ type Query
     | ArtistAlbumSearch ArtistName AlbumName
     | AlbumSearch AlbumName
     | TrackSearch ArtistName TrackName
-    | Discography ArtistName
 
 
 
@@ -52,7 +59,7 @@ pasteUrl requestType parameterList =
 
 
 
--- Create a query
+-- Create a query url
 
 
 queryToUrl : Query -> String
@@ -88,27 +95,33 @@ queryToUrl query =
                     , trackParameter track
                     ]
 
-            Discography artist ->
-                pasteUrl "discography.php"
-                    [ artistParameter artist ]
-
 
 
 -- Http
 
 
-request : Query -> Cmd Msg
-request query =
+trackRequest : Query -> Cmd Msg
+trackRequest query =
     let
         url =
             queryToUrl query
     in
-        Http.send Request <|
+        Http.send TrackRequest <|
             Http.get url trackContainerDecoder
 
 
+albumRequest : Query -> Cmd Msg
+albumRequest query =
+    let
+        url =
+            queryToUrl query
+    in
+        Http.send AlbumRequest <|
+            Http.get url albumContainerDecoder
 
--- Json
+
+
+-- Json Track
 
 
 type alias Track =
@@ -140,16 +153,47 @@ trackContainerDecoder =
 
 
 
+-- Json Album
+
+
+type alias Album =
+    { artist : String
+    , album : String
+    , year : String
+    , image : String
+    }
+
+
+type alias AlbumContainer =
+    { album : List Album }
+
+
+albumDecoder : Decoder Album
+albumDecoder =
+    Decode.succeed Album
+        |> required "strArtist" string
+        |> required "strAlbum" string
+        |> required "intYearReleased" string
+        |> optional "strAlbumThumb" string defaultPicture
+
+
+albumContainerDecoder : Decoder AlbumContainer
+albumContainerDecoder =
+    Decode.succeed AlbumContainer
+        |> required "album" (list albumDecoder)
+
+
+
 -- Model
 
 
 type alias Model =
-    String
+    List String
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( "", request exampleQuery )
+    ( [ "Initial State." ], albumRequest exampleQuery )
 
 
 
@@ -157,15 +201,16 @@ init _ =
 
 
 type Msg
-    = Submit
-    | Request (Result Http.Error TrackContainer)
+    = TrackRequest (Result Http.Error TrackContainer)
+    | AlbumRequest (Result Http.Error AlbumContainer)
 
 
-resultToString : TrackContainer -> String
-resultToString result =
+tracksToString : TrackContainer -> List String
+tracksToString result =
     case List.head result.track of
         Nothing ->
             "No Track"
+                |> List.singleton
 
         Just track ->
             [ track.artist
@@ -174,21 +219,44 @@ resultToString result =
             , track.track
             ]
                 |> String.join " - "
+                |> List.singleton
+
+
+albumsToString : AlbumContainer -> List String
+albumsToString result =
+    let
+        stringify =
+            (\album ->
+                [ album.artist
+                , album.album
+                , album.year
+                , album.image
+                ]
+                    |> String.join " - "
+            )
+    in
+        result.album
+            |> List.map stringify
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Submit ->
-            ( model, request exampleQuery )
-
-        Request (Ok result) ->
-            ( resultToString result
+        TrackRequest (Ok result) ->
+            ( tracksToString result
             , Cmd.none
             )
 
-        Request (Err _) ->
-            ( "error", Cmd.none )
+        TrackRequest (Err _) ->
+            ( [ "track request error" ], Cmd.none )
+
+        AlbumRequest (Ok result) ->
+            ( albumsToString result
+            , Cmd.none
+            )
+
+        AlbumRequest (Err _) ->
+            ( [ "album request error" ], Cmd.none )
 
 
 
@@ -197,12 +265,14 @@ update msg model =
 
 exampleQuery : Query
 exampleQuery =
-    TrackSearch "Front 242" "Tragedy for you"
+    AlbumSearch "Alive"
 
 
 view : Model -> Html msg
 view model =
-    layout [] <| text model
+    layout [] <|
+        column [] <|
+            List.map text model
 
 
 
