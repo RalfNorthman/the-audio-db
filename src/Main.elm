@@ -381,44 +381,38 @@ myText string =
 
 artistView : ArtistContainer -> Element Msg
 artistView result =
-    if List.isEmpty result.artist then
-        myText "No artist found."
-    else
-        case List.head result.artist of
-            Nothing ->
-                myText "No artist found."
+    case List.head result.artist of
+        Nothing ->
+            myText "No artist found."
 
-            Just artist ->
-                column [ spacing 10, padding 10 ]
-                    [ image []
-                        { src = artist.logo
-                        , description = ""
-                        }
-                    , myText artist.bio
-                    , image []
-                        { src = artist.image
-                        , description = ""
-                        }
-                    ]
+        Just artist ->
+            column [ spacing 10, padding 10 ]
+                [ image []
+                    { src = artist.logo
+                    , description = ""
+                    }
+                , myText artist.bio
+                , image []
+                    { src = artist.image
+                    , description = ""
+                    }
+                ]
 
 
 trackView : TrackContainer -> Element Msg
 trackView result =
-    if List.isEmpty result.track then
-        myText "No track found."
-    else
-        case List.head result.track of
-            Nothing ->
-                myText "No track found."
+    case List.head result.track of
+        Nothing ->
+            myText "No track found."
 
-            Just track ->
-                [ track.artist
-                , track.album
-                , track.trackNumber
-                , track.track
-                ]
-                    |> String.join " - "
-                    |> myText
+        Just track ->
+            [ track.artist
+            , track.album
+            , track.trackNumber
+            , track.track
+            ]
+                |> String.join " - "
+                |> myText
 
 
 albumView : AlbumContainer -> Element Msg
