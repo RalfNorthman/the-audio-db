@@ -5,14 +5,14 @@ import Element exposing (..)
 import Browser
 import Http
 import Url.Builder as Url exposing (QueryParameter)
-import Json.Decode as Decode exposing (Decoder, int, string, list)
+import Json.Decode as Decode exposing (Decoder, nullable, field, int, string, list, oneOf, null)
 import Json.Decode.Pipeline exposing (required, optional, requiredAt)
 
 
 -- Settings
 
 
-defaultPicture =
+defaultImage =
     ""
 
 
@@ -168,19 +168,24 @@ type alias AlbumContainer =
     { album : List Album }
 
 
+maybeImage : Decoder String
+maybeImage =
+    oneOf [ string, null defaultImage ]
+
+
 albumDecoder : Decoder Album
 albumDecoder =
-    Decode.succeed Album
-        |> required "strArtist" string
-        |> required "strAlbum" string
-        |> required "intYearReleased" string
-        |> optional "strAlbumThumb" string defaultPicture
+    Decode.map4 Album
+        (field "strArtist" string)
+        (field "strAlbum" string)
+        (field "intYearReleased" string)
+        (field "strAlbumThumb" maybeImage)
 
 
 albumContainerDecoder : Decoder AlbumContainer
 albumContainerDecoder =
-    Decode.succeed AlbumContainer
-        |> required "album" (list albumDecoder)
+    Decode.map AlbumContainer
+        (field "album" (list albumDecoder))
 
 
 
@@ -193,7 +198,7 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( [ "Initial State." ], albumRequest exampleQuery )
+    ( [ "Initial State." ], trackRequest exampleQuery )
 
 
 
@@ -225,15 +230,13 @@ tracksToString result =
 albumsToString : AlbumContainer -> List String
 albumsToString result =
     let
-        stringify =
-            (\album ->
-                [ album.artist
-                , album.album
-                , album.year
-                , album.image
-                ]
-                    |> String.join " - "
-            )
+        stringify album =
+            [ album.artist
+            , album.album
+            , album.year
+            , album.image
+            ]
+                |> String.join " - "
     in
         result.album
             |> List.map stringify
@@ -265,7 +268,7 @@ update msg model =
 
 exampleQuery : Query
 exampleQuery =
-    AlbumSearch "Alive"
+    TrackSearch "Kent" "Columbus"
 
 
 view : Model -> Html msg
