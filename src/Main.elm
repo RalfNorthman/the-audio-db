@@ -100,24 +100,29 @@ queryToUrl query =
 -- Http
 
 
-trackRequest : Query -> Cmd Msg
-trackRequest query =
+makeRequest query requestType decoder =
     let
         url =
             queryToUrl query
     in
-        Http.send TrackRequest <|
-            Http.get url trackContainerDecoder
+        Http.send requestType <|
+            Http.get url decoder
 
 
-albumRequest : Query -> Cmd Msg
-albumRequest query =
-    let
-        url =
-            queryToUrl query
-    in
-        Http.send AlbumRequest <|
-            Http.get url albumContainerDecoder
+request : Query -> Cmd Msg
+request query =
+    case query of
+        ArtistSearch _ ->
+            makeRequest query ArtistRequest artistContainerDecoder
+
+        AlbumSearch _ ->
+            makeRequest query AlbumRequest albumContainerDecoder
+
+        ArtistAlbumSearch _ _ ->
+            makeRequest query AlbumRequest albumContainerDecoder
+
+        TrackSearch _ _ ->
+            makeRequest query TrackRequest trackContainerDecoder
 
 
 
@@ -189,6 +194,42 @@ albumContainerDecoder =
 
 
 
+-- Json Artist
+
+
+type alias Artist =
+    { artist : String
+    , logo : String
+    , image : String
+    , bio : String
+    }
+
+
+type alias ArtistContainer =
+    { artist : List Artist }
+
+
+maybeString : Decoder String
+maybeString =
+    oneOf [ string, null "" ]
+
+
+artistDecoder : Decoder Artist
+artistDecoder =
+    Decode.map4 Artist
+        (field "strArtist" string)
+        (field "strArtistLogo" maybeImage)
+        (field "strArtistThumb" maybeImage)
+        (field "strBiographyEN" maybeString)
+
+
+artistContainerDecoder : Decoder ArtistContainer
+artistContainerDecoder =
+    Decode.map ArtistContainer
+        (field "artists" (list artistDecoder))
+
+
+
 -- Model
 
 
@@ -198,7 +239,7 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( [ "Initial State." ], trackRequest exampleQuery )
+    ( [ "Initial State." ], request exampleQuery )
 
 
 
@@ -208,6 +249,7 @@ init _ =
 type Msg
     = TrackRequest (Result Http.Error TrackContainer)
     | AlbumRequest (Result Http.Error AlbumContainer)
+    | ArtistRequest (Result Http.Error ArtistContainer)
 
 
 tracksToString : TrackContainer -> List String
@@ -261,6 +303,14 @@ update msg model =
         AlbumRequest (Err _) ->
             ( [ "album request error" ], Cmd.none )
 
+        ArtistRequest (Ok result) ->
+            ( [ "add some functionality here" ]
+            , Cmd.none
+            )
+
+        ArtistRequest (Err _) ->
+            ( [ "artist request error" ], Cmd.none )
+
 
 
 -- View
@@ -268,7 +318,7 @@ update msg model =
 
 exampleQuery : Query
 exampleQuery =
-    TrackSearch "Kent" "Columbus"
+    ArtistSearch "kent"
 
 
 view : Model -> Html msg
