@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import Html exposing (Html)
 import Element exposing (..)
+import Element.Font as Font
 import Browser
 import Http
 import Url.Builder as Url exposing (QueryParameter)
@@ -153,8 +154,8 @@ trackDecoder =
 
 trackContainerDecoder : Decoder TrackContainer
 trackContainerDecoder =
-    Decode.succeed TrackContainer
-        |> required "track" (list trackDecoder)
+    Decode.map TrackContainer
+        (field "track" (oneOf [ null [], list trackDecoder ]))
 
 
 
@@ -190,7 +191,7 @@ albumDecoder =
 albumContainerDecoder : Decoder AlbumContainer
 albumContainerDecoder =
     Decode.map AlbumContainer
-        (field "album" (list albumDecoder))
+        (field "album" (oneOf [ null [], list albumDecoder ]))
 
 
 
@@ -226,7 +227,7 @@ artistDecoder =
 artistContainerDecoder : Decoder ArtistContainer
 artistContainerDecoder =
     Decode.map ArtistContainer
-        (field "artists" (list artistDecoder))
+        (field "artists" (oneOf [ null [], list artistDecoder ]))
 
 
 
@@ -288,52 +289,109 @@ update msg model =
 -- View helpers
 
 
+googleFont : String -> Attribute Msg
+googleFont fontName =
+    let
+        fontString =
+            String.replace " " "+" fontName
+    in
+        Font.family
+            [ Font.external
+                { url =
+                    "https://fonts.googleapis.com/css?family="
+                        ++ fontString
+                , name = fontName
+                }
+            ]
+
+
+myText : String -> Element Msg
+myText string =
+    paragraph [ padding 10 ] [ text string ]
+
+
+artistView : ArtistContainer -> Element Msg
+artistView result =
+    if List.isEmpty result.artist then
+        myText "No artist found."
+    else
+        case List.head result.artist of
+            Nothing ->
+                myText "No artist found."
+
+            Just artist ->
+                column [ spacing 10, padding 10 ]
+                    [ image []
+                        { src = artist.logo
+                        , description = ""
+                        }
+                    , myText artist.bio
+                    , image []
+                        { src = artist.image
+                        , description = ""
+                        }
+                    ]
+
+
 trackView : TrackContainer -> Element Msg
 trackView result =
-    case List.head result.track of
-        Nothing ->
-            text "No Track"
+    if List.isEmpty result.track then
+        myText "No track found."
+    else
+        case List.head result.track of
+            Nothing ->
+                myText "No track found."
 
-        Just track ->
-            [ track.artist
-            , track.album
-            , track.trackNumber
-            , track.track
-            ]
-                |> String.join " - "
-                |> text
+            Just track ->
+                [ track.artist
+                , track.album
+                , track.trackNumber
+                , track.track
+                ]
+                    |> String.join " - "
+                    |> myText
 
 
 albumView : AlbumContainer -> Element Msg
 albumView result =
-    let
-        stringify album =
-            [ album.artist
-            , album.album
-            , album.year
-            , album.image
-            ]
-                |> String.join " - "
+    if List.isEmpty result.album then
+        myText "No album with that name."
+    else
+        let
+            stringify album =
+                [ album.artist
+                , album.album
+                , album.year
+                ]
+                    |> String.join " - "
 
-        elementList =
-            result.album
-                |> List.map stringify
-                |> List.map text
-    in
-        column [] elementList
+            makeRow album =
+                row [ spacing 20 ]
+                    [ image [ height <| px 200, width <| px 200 ]
+                        { src = album.image ++ "/preview"
+                        , description = ""
+                        }
+                    , myText <| stringify album
+                    ]
+
+            rowList =
+                result.album
+                    |> List.map makeRow
+        in
+            column [ spacing 10, padding 10 ] rowList
 
 
 caseView : Model -> Element Msg
 caseView model =
     case model of
         InitialState ->
-            text "Initial state."
+            myText "Initial state."
 
         Error errorMessage ->
-            text errorMessage
+            myText errorMessage
 
-        ArtistResult _ ->
-            text "Artist functionality goes here."
+        ArtistResult result ->
+            artistView result
 
         TrackResult result ->
             trackView result
@@ -348,12 +406,12 @@ caseView model =
 
 exampleQuery : Query
 exampleQuery =
-    AlbumSearch "love"
+    ArtistSearch "kent"
 
 
 view : Model -> Html Msg
 view model =
-    layout [] <|
+    layout [ googleFont "Montserrat" ] <|
         caseView model
 
 
