@@ -4,6 +4,8 @@ import Html exposing (Html)
 import Element exposing (..)
 import Element.Font as Font
 import Element.Input as Input
+import Element.Border as Border
+import Element.Background as Background
 import Browser
 import Http
 import Url.Builder as Url exposing (QueryParameter)
@@ -256,7 +258,7 @@ init _ =
       , inputArtist = ""
       , inputAlbum = ""
       }
-    , request exampleQuery
+    , Cmd.none
     )
 
 
@@ -322,6 +324,34 @@ update msg model =
 
         ClickAlbum ->
             ( model, request <| AlbumSearch model.inputAlbum )
+
+
+
+-- Colors
+
+
+makeGrey number =
+    rgb number number number
+
+
+white =
+    makeGrey 1
+
+
+lightGrey =
+    makeGrey 0.9
+
+
+grey =
+    makeGrey 0.8
+
+
+darkGrey =
+    makeGrey 0.7
+
+
+black =
+    makeGrey 0
 
 
 
@@ -439,45 +469,71 @@ caseView return =
             albumView result
 
 
+buttonStyle : List (Attribute Msg)
+buttonStyle =
+    [ Border.rounded 5
+    , Border.width 2
+    , Border.color darkGrey
+    , mouseDown [ Background.color grey ]
+    , mouseOver [ scale <| 8 / 7 ]
+    , padding 10
+    ]
+
+
 myInput modelPart label msg clickMsg =
     let
         inputBox =
             Input.text
-                [ width <| px 300 ]
+                [ width <| px 300
+                , Font.color black
+                ]
                 { onChange = (\x -> msg x)
                 , text = modelPart
                 , placeholder = Nothing
                 , label =
-                    Input.labelLeft [ moveDown 10 ] <|
+                    Input.labelLeft [ moveDown 13 ] <|
                         text label
                 }
 
         clickButton =
-            Input.button []
+            Input.button buttonStyle
                 { onPress = clickMsg
                 , label = text "submit"
                 }
     in
-        row [] [ inputBox, clickButton ]
+        row
+            [ spacing 15
+            , alignRight
+            ]
+            [ inputBox, clickButton ]
 
 
 
 -- View
 
 
-exampleQuery : Query
-exampleQuery =
-    ArtistSearch "gwar"
-
-
 view : Model -> Html Msg
 view model =
-    layout [ googleFont "Montserrat" ] <|
-        column [ padding 10 ]
-            [ myInput model.inputArtist "Artist:" InputArtist <|
-                Just ClickArtist
-            , myInput model.inputAlbum "Album:" InputAlbum <|
-                Just ClickAlbum
+    layout
+        [ googleFont "Montserrat"
+        , Font.color white
+        , Background.color black
+        ]
+    <|
+        column
+            [ padding 10
+            , spacing 10
+            ]
+            [ column
+                [ padding 10
+                , spacing 10
+                , width <| px 600
+                ]
+                [ myInput model.inputArtist "Artist: " InputArtist <|
+                    Just ClickArtist
+                , myInput model.inputAlbum "Album: " InputAlbum <|
+                    Just ClickAlbum
+                ]
             , caseView model.return
             ]
 
