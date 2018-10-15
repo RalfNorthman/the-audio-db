@@ -3,6 +3,7 @@ module Main exposing (main)
 import Html exposing (Html)
 import Element exposing (..)
 import Element.Font as Font
+import Element.Input as Input
 import Browser
 import Http
 import Url.Builder as Url exposing (QueryParameter)
@@ -234,7 +235,14 @@ artistContainerDecoder =
 -- Model
 
 
-type Model
+type alias Model =
+    { return : Return
+    , inputArtist : String
+    , inputAlbum : String
+    }
+
+
+type Return
     = InitialState
     | Error String
     | ArtistResult ArtistContainer
@@ -244,7 +252,12 @@ type Model
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( InitialState, request exampleQuery )
+    ( { return = InitialState
+      , inputArtist = ""
+      , inputAlbum = ""
+      }
+    , request exampleQuery
+    )
 
 
 
@@ -255,34 +268,60 @@ type Msg
     = TrackRequest (Result Http.Error TrackContainer)
     | AlbumRequest (Result Http.Error AlbumContainer)
     | ArtistRequest (Result Http.Error ArtistContainer)
+    | InputArtist String
+    | InputAlbum String
+    | ClickArtist
+    | ClickAlbum
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         TrackRequest (Ok result) ->
-            ( TrackResult result
+            ( { model | return = TrackResult result }
             , Cmd.none
             )
 
         TrackRequest (Err _) ->
-            ( Error "track request error", Cmd.none )
+            ( { model | return = Error "track request error" }
+            , Cmd.none
+            )
 
         AlbumRequest (Ok result) ->
-            ( AlbumResult result
+            ( { model | return = AlbumResult result }
             , Cmd.none
             )
 
         AlbumRequest (Err _) ->
-            ( Error "album request error", Cmd.none )
+            ( { model | return = Error "album request error" }
+            , Cmd.none
+            )
 
         ArtistRequest (Ok result) ->
-            ( ArtistResult result
+            ( { model | return = ArtistResult result }
             , Cmd.none
             )
 
         ArtistRequest (Err _) ->
-            ( Error "artist request error", Cmd.none )
+            ( { model | return = Error "artist request error" }
+            , Cmd.none
+            )
+
+        InputArtist input ->
+            ( { model | inputArtist = input }
+            , Cmd.none
+            )
+
+        InputAlbum input ->
+            ( { model | inputAlbum = input }
+            , Cmd.none
+            )
+
+        ClickArtist ->
+            ( model, request <| ArtistSearch model.inputArtist )
+
+        ClickAlbum ->
+            ( model, request <| AlbumSearch model.inputAlbum )
 
 
 
@@ -381,9 +420,9 @@ albumView result =
             column [ spacing 10, padding 10 ] rowList
 
 
-caseView : Model -> Element Msg
-caseView model =
-    case model of
+caseView : Return -> Element Msg
+caseView return =
+    case return of
         InitialState ->
             myText "Initial state."
 
@@ -400,19 +439,47 @@ caseView model =
             albumView result
 
 
+myInput modelPart label msg clickMsg =
+    let
+        inputBox =
+            Input.text
+                [ width <| px 300 ]
+                { onChange = (\x -> msg x)
+                , text = modelPart
+                , placeholder = Nothing
+                , label =
+                    Input.labelLeft [ moveDown 10 ] <|
+                        text label
+                }
+
+        clickButton =
+            Input.button []
+                { onPress = clickMsg
+                , label = text "submit"
+                }
+    in
+        row [] [ inputBox, clickButton ]
+
+
 
 -- View
 
 
 exampleQuery : Query
 exampleQuery =
-    ArtistSearch "kent"
+    ArtistSearch "gwar"
 
 
 view : Model -> Html Msg
 view model =
     layout [ googleFont "Montserrat" ] <|
-        caseView model
+        column [ padding 10 ]
+            [ myInput model.inputArtist "Artist:" InputArtist <|
+                Just ClickArtist
+            , myInput model.inputAlbum "Album:" InputAlbum <|
+                Just ClickAlbum
+            , caseView model.return
+            ]
 
 
 
