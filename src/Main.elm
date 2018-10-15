@@ -100,29 +100,29 @@ queryToUrl query =
 -- Http
 
 
-makeRequest query requestType decoder =
-    let
-        url =
-            queryToUrl query
-    in
-        Http.send requestType <|
-            Http.get url decoder
-
-
 request : Query -> Cmd Msg
 request query =
-    case query of
-        ArtistSearch _ ->
-            makeRequest query ArtistRequest artistContainerDecoder
+    let
+        makeRequest requestType decoder =
+            let
+                url =
+                    queryToUrl query
+            in
+                Http.send requestType <|
+                    Http.get url decoder
+    in
+        case query of
+            ArtistSearch _ ->
+                makeRequest ArtistRequest artistContainerDecoder
 
-        AlbumSearch _ ->
-            makeRequest query AlbumRequest albumContainerDecoder
+            AlbumSearch _ ->
+                makeRequest AlbumRequest albumContainerDecoder
 
-        ArtistAlbumSearch _ _ ->
-            makeRequest query AlbumRequest albumContainerDecoder
+            ArtistAlbumSearch _ _ ->
+                makeRequest AlbumRequest albumContainerDecoder
 
-        TrackSearch _ _ ->
-            makeRequest query TrackRequest trackContainerDecoder
+            TrackSearch _ _ ->
+                makeRequest TrackRequest trackContainerDecoder
 
 
 
@@ -233,13 +233,17 @@ artistContainerDecoder =
 -- Model
 
 
-type alias Model =
-    List String
+type Model
+    = InitialState
+    | Error String
+    | ArtistResult ArtistContainer
+    | AlbumResult AlbumContainer
+    | TrackResult TrackContainer
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( [ "Initial State." ], request exampleQuery )
+    ( InitialState, request exampleQuery )
 
 
 
@@ -252,12 +256,43 @@ type Msg
     | ArtistRequest (Result Http.Error ArtistContainer)
 
 
-tracksToString : TrackContainer -> List String
-tracksToString result =
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        TrackRequest (Ok result) ->
+            ( TrackResult result
+            , Cmd.none
+            )
+
+        TrackRequest (Err _) ->
+            ( Error "track request error", Cmd.none )
+
+        AlbumRequest (Ok result) ->
+            ( AlbumResult result
+            , Cmd.none
+            )
+
+        AlbumRequest (Err _) ->
+            ( Error "album request error", Cmd.none )
+
+        ArtistRequest (Ok result) ->
+            ( ArtistResult result
+            , Cmd.none
+            )
+
+        ArtistRequest (Err _) ->
+            ( Error "artist request error", Cmd.none )
+
+
+
+-- View helpers
+
+
+trackView : TrackContainer -> Element Msg
+trackView result =
     case List.head result.track of
         Nothing ->
-            "No Track"
-                |> List.singleton
+            text "No Track"
 
         Just track ->
             [ track.artist
@@ -266,11 +301,11 @@ tracksToString result =
             , track.track
             ]
                 |> String.join " - "
-                |> List.singleton
+                |> text
 
 
-albumsToString : AlbumContainer -> List String
-albumsToString result =
+albumView : AlbumContainer -> Element Msg
+albumView result =
     let
         stringify album =
             [ album.artist
@@ -279,37 +314,32 @@ albumsToString result =
             , album.image
             ]
                 |> String.join " - "
+
+        elementList =
+            result.album
+                |> List.map stringify
+                |> List.map text
     in
-        result.album
-            |> List.map stringify
+        column [] elementList
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
-    case msg of
-        TrackRequest (Ok result) ->
-            ( tracksToString result
-            , Cmd.none
-            )
+caseView : Model -> Element Msg
+caseView model =
+    case model of
+        InitialState ->
+            text "Initial state."
 
-        TrackRequest (Err _) ->
-            ( [ "track request error" ], Cmd.none )
+        Error errorMessage ->
+            text errorMessage
 
-        AlbumRequest (Ok result) ->
-            ( albumsToString result
-            , Cmd.none
-            )
+        ArtistResult _ ->
+            text "Artist functionality goes here."
 
-        AlbumRequest (Err _) ->
-            ( [ "album request error" ], Cmd.none )
+        TrackResult result ->
+            trackView result
 
-        ArtistRequest (Ok result) ->
-            ( [ "add some functionality here" ]
-            , Cmd.none
-            )
-
-        ArtistRequest (Err _) ->
-            ( [ "artist request error" ], Cmd.none )
+        AlbumResult result ->
+            albumView result
 
 
 
@@ -318,14 +348,13 @@ update msg model =
 
 exampleQuery : Query
 exampleQuery =
-    ArtistSearch "kent"
+    AlbumSearch "love"
 
 
-view : Model -> Html msg
+view : Model -> Html Msg
 view model =
     layout [] <|
-        column [] <|
-            List.map text model
+        caseView model
 
 
 
